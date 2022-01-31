@@ -22,7 +22,7 @@ def tail_latency():
         # "latencies": latencies,
         "num_requests": len(latencies),
         "percentiles": {
-            p: float("{:.2f}".format(np.percentile(latencies, p) * 1000)) for p in percentiles
+            p: float("{:.2f}".format(np.percentile(latencies, p) * 1000)) if len(latencies) > 0 else 0 for p in percentiles
         }
     })
 
@@ -33,7 +33,8 @@ def before_request():
 @app.after_request
 def after_request(response):
     diff = time.time() - g.start
+    print(diff)
     latencies.append(diff)
     return response
 
-app.run(host="0.0.0.0", port=8080)
+app.run(host="0.0.0.0", port=8080, threaded=True)
