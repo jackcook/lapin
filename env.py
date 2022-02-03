@@ -9,52 +9,56 @@ from tqdm import trange
 
 class LapinEnv(gym.Env):
 
-	def __init__(self):
-		self.action_space = gym.spaces.Discrete(3)
-		self.observation_space = gym.spaces.Box(low=0, high=100, shape=(1,), dtype=np.float32)
-		self.victim = WebServerVictim()
-		self.workers = []
-		self.last_val = 0
+    def __init__(self):
+        self.action_space = gym.spaces.Discrete(3)
+        self.observation_space = gym.spaces.Discrete(100)
+        #self.observation_space = gym.spaces.Box(low=0, high=100, shape=(1,), dtype=np.float32)
+        self.victim = WebServerVictim()
+        self.workers = []
+        self.last_val = 0
 
-	def step(self, action):
-		if action == 0:
-			# Do nothing
-			pass
-		if action == 1:
-			# Start new worker
-			for i in range(5):
-				self.workers.append(subprocess.Popen(["python", "mindless_worker.py"]))
-		elif action == 2:
-			# Kill worker
-			for i in range(5):
-				if len(self.workers) > 0:
-					self.workers.pop().kill()
+    def get_state(self):
+        return len(self.workers)
+        #return (len(self.workers),)
 
-		self.victim.start()
-		time.sleep(5)
-		self.victim.stop()
+    def step(self, action):
+        if action == 0:
+            # Do nothing
+            pass
+        if action == 1:
+            # Start new worker
+            self.workers.append(subprocess.Popen(["python", "mindless_worker.py"]))
+        elif action == 2:
+            # Kill worker
+            if len(self.workers) > 0:
+                self.workers.pop().kill()
 
-		state = len(self.workers)
-		# print(self.victim.get_data())
-		reward = self.victim.get_data()["percentiles"]["99.9"] - self.last_val
-		self.last_val = self.victim.get_data()["percentiles"]["99.9"]
+        #self.victim.start()
+        #time.sleep(5)
+        #self.victim.stop()
 
-		done = self.last_val > 5
-		info = {}
+        tail_latency = max(1.5, 5 * np.random.randn() + len(self.workers) / 2)
+        cpu_util = psutil.cpu_percent()
+        #tail_latency = self.victim.get_data()["percentiles"]["99.9"]
 
-		print(action, state, f"{reward:.2f}", done)
+        reward = -1 if cpu_util < 25 else 0
+        done = reward == 0
 
-		return (state,), reward, done, info
+        #print(action, state, f"{tail_latency:.2f}", done)
 
-	def reset(self):
-		for w in self.workers:
-			w.kill()
+        return self.get_state(), reward, done, {}
 
-		self.workers = []
-		self.last_val = 0
-		state = len(self.workers)
+    def close(self):
+        for w in self.workers:
+            w.kill()
 
-		return (state,)
-	
-	def render(self):
-		pass
+    def reset(self):
+        for w in self.workers:
+            w.kill()
+
+        self.workers = []
+
+        return self.get_state()
+    
+    def render(self):
+        pass
