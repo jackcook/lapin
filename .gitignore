@@ -1,2 +1,9 @@
+# Misc
 __pycache__
 .DS_Store
+
+# Training output
+tensorboard
+
+# Saved models
+*.zip
